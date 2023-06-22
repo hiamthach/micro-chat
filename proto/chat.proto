@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package chat;
+
+option go_package = "github.com/hiamthach/micro-chat/pb";
+
+service ChatService {
+    rpc CreateRoom(CreateRoomRequest) returns (CreateRoomResponse);
+    rpc JoinRoom(JoinRoomRequest) returns (JoinRoomResponse);
+}
+
+message CreateRoomRequest {
+    string name = 1;
+}
+
+message CreateRoomResponse {
+    string id = 1;
+}
+
+message JoinRoomRequest {
+    string name = 1;
+    string id = 2;
+}
+
+message JoinRoomResponse {
+    string message = 1;
+}
