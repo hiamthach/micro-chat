@@ -38,4 +38,18 @@ func main() {
 	}
 
 	log.Print(msg)
+
+	message := &pb.SendMessageRequest{
+		RoomId:    "64942cbcff10f89222a95c3e",
+		SenderId:  "Thach",
+		Content:   "Hello",
+		Timestamp: time.Now().UnixNano() / 1000000,
+	}
+
+	mess, err := c.SendMessage(ctx, message)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Print(mess)
 }

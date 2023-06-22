@@ -101,3 +101,28 @@ func (s *ChatServer) JoinRoom(ctx context.Context, req *pb.JoinRoomRequest) (*pb
 		Message: fmt.Sprintf("Joined room: %v", room.Name),
 	}, nil
 }
+
+func (s *ChatServer) SendMessage(ctx context.Context, req *pb.SendMessageRequest) (*pb.SendMessageResponse, error) {
+	var message model.Message
+	message.RoomID = req.GetRoomId()
+	message.SenderID = req.GetSenderId()
+	message.Content = req.GetContent()
+	message.Timestamp = req.GetTimestamp()
+
+	result, err := s.DB.Collection("messages").InsertOne(ctx, &message)
+	if err != nil {
+		return nil, err
+	}
+
+	insertedID, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return nil, fmt.Errorf("failed to get inserted ID")
+	}
+	message.ID = insertedID.Hex()
+
+	log.Printf("Created message: %v", message.ID)
+
+	return &pb.SendMessageResponse{
+		Message: message.Content,
+	}, nil
+}

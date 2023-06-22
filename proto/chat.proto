@@ -7,6 +7,7 @@ option go_package = "github.com/hiamthach/micro-chat/pb";
 service ChatService {
     rpc CreateRoom(CreateRoomRequest) returns (CreateRoomResponse);
     rpc JoinRoom(JoinRoomRequest) returns (JoinRoomResponse);
+    rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
 }
 
 message CreateRoomRequest {
@@ -23,5 +24,16 @@ message JoinRoomRequest {
 }
 
 message JoinRoomResponse {
+    string message = 1;
+}
+
+message SendMessageRequest {
+    string content = 1;
+    string roomId = 2;
+    string senderId = 3;
+    int64 timestamp = 4;
+}
+
+message SendMessageResponse {
     string message = 1;
 }
