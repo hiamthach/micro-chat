@@ -126,3 +126,37 @@ func (s *ChatServer) SendMessage(ctx context.Context, req *pb.SendMessageRequest
 		Message: message.Content,
 	}, nil
 }
+
+func (s *ChatServer) GetRoomMessages(ctx context.Context, req *pb.GetRoomMessagesRequest) (*pb.GetRoomMessagesResponse, error) {
+	var messages []*pb.Message
+
+	// Retrieve messages from the database based on the room ID
+	cursor, err := s.DB.Collection("messages").Find(ctx, bson.M{"roomId": req.GetRoomId()})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var message model.Message
+		err := cursor.Decode(&message)
+		if err != nil {
+			return nil, err
+		}
+
+		// Convert the retrieved message to the protobuf message format
+		pbMessage := &pb.Message{
+			Id:        message.ID,
+			RoomId:    message.RoomID,
+			SenderId:  message.SenderID,
+			Content:   message.Content,
+			Timestamp: message.Timestamp,
+		}
+
+		messages = append(messages, pbMessage)
+	}
+
+	return &pb.GetRoomMessagesResponse{
+		Messages: messages,
+	}, nil
+}

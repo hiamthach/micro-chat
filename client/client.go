@@ -7,6 +7,7 @@ import (
 
 	pb "github.com/hiamthach/micro-chat/pb"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func main() {
@@ -27,23 +28,23 @@ func main() {
 	// 	panic(err)
 	// }
 
-	join := &pb.JoinRoomRequest{
-		Id:   "64942cbcff10f89222a95c3e",
-		Name: "Thach",
-	}
+	// join := &pb.JoinRoomRequest{
+	// 	Id:   "64942cbcff10f89222a95c3e",
+	// 	Name: "Thach",
+	// }
 
-	msg, err := c.JoinRoom(ctx, join)
-	if err != nil {
-		panic(err)
-	}
+	// msg, err := c.JoinRoom(ctx, join)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	log.Print(msg)
+	// log.Print(msg)
 
 	message := &pb.SendMessageRequest{
 		RoomId:    "64942cbcff10f89222a95c3e",
 		SenderId:  "Thach",
 		Content:   "Hello",
-		Timestamp: time.Now().UnixNano() / 1000000,
+		Timestamp: timestamppb.New(time.Now()),
 	}
 
 	mess, err := c.SendMessage(ctx, message)
@@ -52,4 +53,14 @@ func main() {
 	}
 
 	log.Print(mess)
+
+	req := &pb.GetRoomMessagesRequest{
+		RoomId: "64942cbcff10f89222a95c3e",
+	}
+
+	messages, err := c.GetRoomMessages(ctx, req)
+	if err != nil {
+		panic(err)
+	}
+	log.Print(messages.Messages)
 }

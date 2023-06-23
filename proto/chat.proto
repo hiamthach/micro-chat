@@ -1,13 +1,43 @@
 syntax = "proto3";
 
-package chat;
+package pb;
+
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/hiamthach/micro-chat/pb";
 
 service ChatService {
+    rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+    rpc GetRoomMessages(GetRoomMessagesRequest) returns (GetRoomMessagesResponse);
     rpc CreateRoom(CreateRoomRequest) returns (CreateRoomResponse);
     rpc JoinRoom(JoinRoomRequest) returns (JoinRoomResponse);
-    rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+}
+
+message Message {
+    string id = 1;
+    string content = 2;
+    string roomId = 3;
+    string senderId = 4;
+    google.protobuf.Timestamp timestamp = 5;
+}
+
+message SendMessageRequest {
+    string content = 1;
+    string room_id = 2;
+    string sender_id = 3;
+    google.protobuf.Timestamp timestamp = 4;
+}
+
+message SendMessageResponse {
+    string message = 1;
+}
+
+message GetRoomMessagesRequest {
+    string room_id = 1;
+}
+
+message GetRoomMessagesResponse {
+    repeated Message messages = 1;
 }
 
 message CreateRoomRequest {
@@ -24,16 +54,5 @@ message JoinRoomRequest {
 }
 
 message JoinRoomResponse {
-    string message = 1;
-}
-
-message SendMessageRequest {
-    string content = 1;
-    string roomId = 2;
-    string senderId = 3;
-    int64 timestamp = 4;
-}
-
-message SendMessageResponse {
     string message = 1;
 }
