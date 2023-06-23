@@ -4,13 +4,20 @@ package pb;
 
 import "google/protobuf/timestamp.proto";
 
+import "google/api/annotations.proto";
+
 option go_package = "github.com/hiamthach/micro-chat/pb";
 
 service ChatService {
     rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
     rpc GetRoomMessages(GetRoomMessagesRequest) returns (GetRoomMessagesResponse);
     rpc CreateRoom(CreateRoomRequest) returns (CreateRoomResponse);
-    rpc JoinRoom(JoinRoomRequest) returns (JoinRoomResponse);
+    rpc JoinRoom(JoinRoomRequest) returns (JoinRoomResponse) {
+        option (google.api.http) = {
+            post: "/v1/join-room"
+            body: "*"
+        };
+    }
 }
 
 message Message {

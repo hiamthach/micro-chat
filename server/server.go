@@ -39,6 +39,10 @@ func (s *ChatServer) Run() error {
 	server := grpc.NewServer()
 	pb.RegisterChatServiceServer(server, s)
 
+	if err != nil {
+		log.Fatal("Failed to register gRPC-Gateway server: ", err)
+	}
+
 	return server.Serve(lis)
 }
 
