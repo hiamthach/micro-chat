@@ -16,7 +16,7 @@
     "application/json"
   ],
   "paths": {
-    "/v1/rooms": {
+    "/rooms": {
       "post": {
         "operationId": "RoomService_CreateRoom",
         "responses": {
@@ -48,7 +48,7 @@
         ]
       }
     },
-    "/v1/rooms/join/{id}": {
+    "/rooms/join/{id}": {
       "post": {
         "operationId": "RoomService_JoinRoom",
         "responses": {
@@ -90,6 +90,36 @@
           "RoomService"
         ]
       }
+    },
+    "/rooms/{id}": {
+      "get": {
+        "operationId": "RoomService_GetRoom",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pbRoom"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "RoomService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -108,18 +138,8 @@
     "pbCreateRoomResponse": {
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "roomName": {
-          "type": "string"
-        },
-        "roomSize": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "createdBy": {
-          "type": "string"
+        "room": {
+          "$ref": "#/definitions/pbRoom"
         }
       }
     },
@@ -134,6 +154,27 @@
         },
         "message": {
           "type": "string"
+        }
+      }
+    },
+    "pbRoom": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "roomSize": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
