@@ -2,165 +2,96 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
+	"net/http"
 
-	"github.com/hiamthach/micro-chat/model"
-	pb "github.com/hiamthach/micro-chat/pb"
-	"go.mongodb.org/mongo-driver/bson"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/hiamthach/micro-chat/pb"
+	"github.com/hiamthach/micro-chat/util"
 	"go.mongodb.org/mongo-driver/mongo"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
-const (
-	port = ":50051"
-)
+func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn) {
+	grpcServer := grpc.NewServer()
 
-func NewChatServer() *ChatServer {
-	return &ChatServer{}
+	// Register gRPC server
+	roomServer, err := NewRoomServer(config, cache, store)
+	if err != nil {
+		log.Fatalf("Failed to create room server: %v", err)
+	}
+
+	pb.RegisterRoomServiceServer(grpcServer, roomServer)
+
+	// Start gRPC server
+	listener, err := net.Listen("tcp", config.GRPCServerAddress)
+	if err != nil {
+		log.Fatalf("Failed to listen: %v", err)
+	}
+
+	log.Printf("gRPC server listening at %v", listener.Addr())
+
+	if err := grpcServer.Serve(listener); err != nil {
+		log.Fatalf("Failed to serve: %v", err)
+	}
 }
 
-type ChatServer struct {
-	DB *mongo.Database
-	pb.UnimplementedChatServiceServer
-}
-
-func (s *ChatServer) Run() error {
-	lis, err := net.Listen("tcp", port)
+func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn) {
+	roomServer, err := NewRoomServer(config, cache, store)
 	if err != nil {
-		log.Fatalf("failed to listen: %s", err.Error())
+		log.Fatalf("Failed to create room server: %v", err)
 	}
 
-	fmt.Printf("Server listening at %v\n", lis.Addr())
-
-	server := grpc.NewServer()
-	pb.RegisterChatServiceServer(server, s)
-
-	if err != nil {
-		log.Fatal("Failed to register gRPC-Gateway server: ", err)
-	}
-
-	return server.Serve(lis)
-}
-
-func (s *ChatServer) CreateRoom(ctx context.Context, req *pb.CreateRoomRequest) (*pb.CreateRoomResponse, error) {
-	var room model.Room
-	room.Name = req.GetName()
-	room.Participants = []string{}
-	room.CreatedBy = req.GetName()
-
-	// Insert into MongoDB and bind the ID to the room
-	result, err := s.DB.Collection("rooms").InsertOne(ctx, &room)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the inserted ID and assign it to the room object
-	insertedID, ok := result.InsertedID.(primitive.ObjectID)
-	if !ok {
-		return nil, fmt.Errorf("failed to get inserted ID")
-	}
-	room.ID = insertedID.Hex()
-
-	log.Printf("Created room: %v", room.ID)
-
-	return &pb.CreateRoomResponse{
-		Id: room.ID,
-	}, nil
-}
-
-func (s *ChatServer) JoinRoom(ctx context.Context, req *pb.JoinRoomRequest) (*pb.JoinRoomResponse, error) {
-	var room model.Room
-	objectID, err := primitive.ObjectIDFromHex(req.GetId())
-	if err != nil {
-		log.Println("Invalid ID")
-		return nil, err
-	}
-
-	err = s.DB.Collection("rooms").FindOne(ctx, bson.M{"_id": objectID}).Decode(&room)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return &pb.JoinRoomResponse{
-			Message: fmt.Sprintf("Room not found: %v", req.GetId()),
-		}, nil
-	}
-
-	// Create a new struct or map to hold the updated room data
-	updateData := bson.M{
-		"$push": bson.M{
-			"participants": req.GetName(),
+	// initialize json option
+	jsonOption := runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
+		MarshalOptions: protojson.MarshalOptions{
+			UseProtoNames: true,
 		},
+		UnmarshalOptions: protojson.UnmarshalOptions{
+			DiscardUnknown: true,
+		},
+	})
+
+	// initialize gRPC gateway mux
+	grpcMux := runtime.NewServeMux(jsonOption)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// register gRPC server endpoint
+	if err := pb.RegisterRoomServiceHandlerServer(ctx, grpcMux, roomServer); err != nil {
+		log.Fatalf("Failed to register gateway: %v", err)
 	}
 
-	_, err = s.DB.Collection("rooms").UpdateOne(ctx, bson.M{"_id": objectID}, updateData)
+	// initialize http server
+	mux := http.NewServeMux()
+	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", grpcMux))
+
+	listener, err := net.Listen("tcp", config.ServerAddress)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return nil, err
+		log.Fatal("Can not start server: ", err)
 	}
 
-	return &pb.JoinRoomResponse{
-		Message: fmt.Sprintf("Joined room: %v", room.Name),
-	}, nil
+	log.Println("Starting gateway server on", config.ServerAddress)
+
+	err = http.Serve(listener, enableCors(mux))
+	if err != nil {
+		log.Fatal("Can not start server: ", err)
+	}
 }
 
-func (s *ChatServer) SendMessage(ctx context.Context, req *pb.SendMessageRequest) (*pb.SendMessageResponse, error) {
-	var message model.Message
-	message.RoomID = req.GetRoomId()
-	message.SenderID = req.GetSenderId()
-	message.Content = req.GetContent()
-	message.Timestamp = req.GetTimestamp()
-
-	result, err := s.DB.Collection("messages").InsertOne(ctx, &message)
-	if err != nil {
-		return nil, err
-	}
-
-	insertedID, ok := result.InsertedID.(primitive.ObjectID)
-	if !ok {
-		return nil, fmt.Errorf("failed to get inserted ID")
-	}
-	message.ID = insertedID.Hex()
-
-	log.Printf("Created message: %v", message.ID)
-
-	return &pb.SendMessageResponse{
-		Message: message.Content,
-	}, nil
-}
-
-func (s *ChatServer) GetRoomMessages(ctx context.Context, req *pb.GetRoomMessagesRequest) (*pb.GetRoomMessagesResponse, error) {
-	var messages []*pb.Message
-
-	// Retrieve messages from the database based on the room ID
-	cursor, err := s.DB.Collection("messages").Find(ctx, bson.M{"roomId": req.GetRoomId()})
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	for cursor.Next(ctx) {
-		var message model.Message
-		err := cursor.Decode(&message)
-		if err != nil {
-			return nil, err
+// Enable CORS
+func enableCors(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, HEAD, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
 		}
-
-		// Convert the retrieved message to the protobuf message format
-		pbMessage := &pb.Message{
-			Id:        message.ID,
-			RoomId:    message.RoomID,
-			SenderId:  message.SenderID,
-			Content:   message.Content,
-			Timestamp: message.Timestamp,
-		}
-
-		messages = append(messages, pbMessage)
-	}
-
-	return &pb.GetRoomMessagesResponse{
-		Messages: messages,
-	}, nil
+		h.ServeHTTP(w, r)
+	})
 }

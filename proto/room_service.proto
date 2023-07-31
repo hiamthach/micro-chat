@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package pb;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/hiamthach/micro-chat/pb";
+
+service RoomService {
+  rpc CreateRoom (CreateRoomRequest) returns (CreateRoomResponse) {
+    option (google.api.http) = {
+      post: "/v1/rooms"
+      body: "*"
+    };
+  }
+
+  rpc JoinRoom(JoinRoomRequest) returns (JoinRoomResponse) {
+    option (google.api.http) = {
+      post: "/v1/rooms/join/{id}"
+      body: "*"
+    };
+  }
+}
+
+message Room {
+  string id = 1;
+  string name = 2;
+  repeated string participants = 3;
+  string createdBy = 4;
+}
+
+message CreateRoomRequest {
+  string owner = 1;
+  uint32 room_size = 2;
+}
+
+message CreateRoomResponse {
+  string id = 1;
+  string room_name = 2;
+  uint32 room_size = 3;
+  string createdBy = 4;
+}
+
+message JoinRoomRequest {
+  string id = 1;
+  string username = 2;
+}
+
+message JoinRoomResponse {
+  string room_id = 1;
+  string username = 2;
+  string message = 3;
+}
