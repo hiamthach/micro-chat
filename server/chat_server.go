@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	socketio "github.com/googollee/go-socket.io"
 	"github.com/hiamthach/micro-chat/model"
 	"github.com/hiamthach/micro-chat/pb"
 	"github.com/hiamthach/micro-chat/util"
@@ -14,19 +15,21 @@ import (
 )
 
 type ChatServer struct {
-	cache  util.RedisUtil
-	config util.Config
-	store  *mongo.Client
-	pb.UnimplementedChatServiceServer
+	cache      util.RedisUtil
+	config     util.Config
+	store      *mongo.Client
 	clientConn *grpc.ClientConn
+	socket     socketio.Server
+	pb.UnimplementedChatServiceServer
 }
 
-func NewChatServer(config util.Config, cache util.RedisUtil, store *mongo.Client, conn *grpc.ClientConn) (*ChatServer, error) {
+func NewChatServer(config util.Config, cache util.RedisUtil, store *mongo.Client, conn *grpc.ClientConn, socket socketio.Server) (*ChatServer, error) {
 	return &ChatServer{
 		cache:      cache,
 		config:     config,
 		store:      store,
 		clientConn: conn,
+		socket:     socket,
 	}, nil
 }
 
@@ -53,6 +56,9 @@ func (s *ChatServer) SendMessage(ctx context.Context, req *pb.SendMessageRequest
 	if _, err := s.store.Database("chat-app").Collection("messages").InsertOne(ctx, &message); err != nil {
 		return nil, err
 	}
+
+	// Emit message to room
+	s.socket.BroadcastToRoom("/", req.RoomId, "new_message", message)
 
 	return convertMessage(message), nil
 }

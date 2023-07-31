@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/hiamthach/micro-chat/db"
 	"github.com/hiamthach/micro-chat/pb"
 	"github.com/hiamthach/micro-chat/util"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -17,6 +18,12 @@ import (
 func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn) {
 	grpcServer := grpc.NewServer()
 
+	// socket server
+	socketServer, err := db.NewSocketServer()
+	if err != nil {
+		log.Fatalf("Failed to create socket server: %v", err)
+	}
+
 	// Register gRPC server
 	roomServer, err := NewRoomServer(config, cache, store)
 	if err != nil {
@@ -24,7 +31,7 @@ func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil
 	}
 	pb.RegisterRoomServiceServer(grpcServer, roomServer)
 
-	chatServer, err := NewChatServer(config, cache, store, conn)
+	chatServer, err := NewChatServer(config, cache, store, conn, *socketServer)
 	if err != nil {
 		log.Fatalf("Failed to create chat server: %v", err)
 	}
@@ -44,12 +51,19 @@ func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil
 }
 
 func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn) {
+	// initialize socket server
+	socketServer, err := db.NewSocketServer()
+	if err != nil {
+		log.Fatalf("Failed to create socket server: %v", err)
+	}
+
+	// initialize grpc server
 	roomServer, err := NewRoomServer(config, cache, store)
 	if err != nil {
 		log.Fatalf("Failed to create room server: %v", err)
 	}
 
-	chatServer, err := NewChatServer(config, cache, store, conn)
+	chatServer, err := NewChatServer(config, cache, store, conn, *socketServer)
 	if err != nil {
 		log.Fatalf("Failed to create chat server: %v", err)
 	}
@@ -82,6 +96,7 @@ func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisU
 	// initialize http server
 	mux := http.NewServeMux()
 	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", grpcMux))
+	mux.Handle("/socket.io/", socketServer)
 
 	listener, err := net.Listen("tcp", config.ServerAddress)
 	if err != nil {
