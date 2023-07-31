@@ -22,8 +22,13 @@ func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil
 	if err != nil {
 		log.Fatalf("Failed to create room server: %v", err)
 	}
-
 	pb.RegisterRoomServiceServer(grpcServer, roomServer)
+
+	chatServer, err := NewChatServer(config, cache, store, conn)
+	if err != nil {
+		log.Fatalf("Failed to create chat server: %v", err)
+	}
+	pb.RegisterChatServiceServer(grpcServer, chatServer)
 
 	// Start gRPC server
 	listener, err := net.Listen("tcp", config.GRPCServerAddress)
@@ -44,6 +49,11 @@ func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisU
 		log.Fatalf("Failed to create room server: %v", err)
 	}
 
+	chatServer, err := NewChatServer(config, cache, store, conn)
+	if err != nil {
+		log.Fatalf("Failed to create chat server: %v", err)
+	}
+
 	// initialize json option
 	jsonOption := runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
 		MarshalOptions: protojson.MarshalOptions{
@@ -62,6 +72,10 @@ func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisU
 
 	// register gRPC server endpoint
 	if err := pb.RegisterRoomServiceHandlerServer(ctx, grpcMux, roomServer); err != nil {
+		log.Fatalf("Failed to register gateway: %v", err)
+	}
+
+	if err := pb.RegisterChatServiceHandlerServer(ctx, grpcMux, chatServer); err != nil {
 		log.Fatalf("Failed to register gateway: %v", err)
 	}
 

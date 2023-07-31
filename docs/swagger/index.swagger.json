@@ -1,10 +1,13 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "room_service.proto",
+    "title": "chat_service.proto",
     "version": "version not set"
   },
   "tags": [
+    {
+      "name": "ChatService"
+    },
     {
       "name": "RoomService"
     }
@@ -16,6 +19,81 @@
     "application/json"
   ],
   "paths": {
+    "/chat/messages/{roomId}": {
+      "post": {
+        "operationId": "ChatService_GetMessages",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pbGetMessagesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
+    "/chat/send": {
+      "post": {
+        "operationId": "ChatService_SendMessage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pbMessage"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pbSendMessageRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
     "/rooms": {
       "post": {
         "operationId": "RoomService_CreateRoom",
@@ -143,6 +221,18 @@
         }
       }
     },
+    "pbGetMessagesResponse": {
+      "type": "object",
+      "properties": {
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pbMessage"
+          }
+        }
+      }
+    },
     "pbJoinRoomResponse": {
       "type": "object",
       "properties": {
@@ -154,6 +244,27 @@
         },
         "message": {
           "type": "string"
+        }
+      }
+    },
+    "pbMessage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "roomId": {
+          "type": "string"
+        },
+        "senderId": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -175,6 +286,20 @@
         "roomSize": {
           "type": "integer",
           "format": "int64"
+        }
+      }
+    },
+    "pbSendMessageRequest": {
+      "type": "object",
+      "properties": {
+        "roomId": {
+          "type": "string"
+        },
+        "senderId": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
         }
       }
     },

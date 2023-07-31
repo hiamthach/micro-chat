@@ -16,6 +16,7 @@ type Config struct {
 	ServerAddress          string        `mapstructure:"SERVER_ADDRESS" env:"SERVER_ADDRESS"`
 	GRPCServerAddress      string        `mapstructure:"GRPC_SERVER_ADDRESS" env:"GRPC_SERVER_ADDRESS"`
 	GRPCClientAddress      string        `mapstructure:"GRPC_CLIENT_ADDRESS" env:"GRPC_CLIENT_ADDRESS"`
+	SocketAddress          string        `mapstructure:"SOCKET_ADDRESS" env:"SOCKET_ADDRESS"`
 	TokenSymmetricKey      string        `mapstructure:"TOKEN_SYMMETRIC_KEY" env:"TOKEN_SYMMETRIC_KEY"`
 	AccessTokenDuration    time.Duration `mapstructure:"ACCESS_TOKEN_DURATION" env:"TOKEN_SYMMETRIC_KEY"`
 	AccessTokenPublicKey   string        `mapstructure:"ACCESS_TOKEN_PUBLIC_KEY" env:"ACCESS_TOKEN_PUBLIC_KEY"`
@@ -40,8 +41,4 @@ func LoadConfig(path string) (config Config, err error) {
 
 	err = viper.Unmarshal(&config)
 	return
-}
-
-func (config *Config) GetDBSource(dbName string) string {
-	return config.DBUrl + dbName + "?sslmode=verify-full"
 }
