@@ -58,7 +58,7 @@ func (s *ChatServer) SendMessage(ctx context.Context, req *pb.SendMessageRequest
 	}
 
 	// Emit message to room
-	s.socket.BroadcastToRoom("/", req.RoomId, "new_message", message)
+	s.socket.BroadcastToNamespace("/", "new_message", "Hello")
 
 	return convertMessage(message), nil
 }

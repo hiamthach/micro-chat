@@ -50,10 +50,12 @@ func (s *RoomServer) CreateRoom(ctx context.Context, req *pb.CreateRoomRequest) 
 		CreatedBy:    req.Owner,
 		Participants: []string{req.Owner},
 	}
-
-	if _, err := s.store.Database("chat-app").Collection("rooms").InsertOne(ctx, &room); err != nil {
+	result, err := s.store.Database("chat-app").Collection("rooms").InsertOne(ctx, &room)
+	if err != nil {
 		return nil, err
 	}
+
+	room.ID = result.InsertedID.(primitive.ObjectID).Hex()
 
 	res := &pb.CreateRoomResponse{
 		Room: convertRoom(room),

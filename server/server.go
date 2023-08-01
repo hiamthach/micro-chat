@@ -6,8 +6,9 @@ import (
 	"net"
 	"net/http"
 
+	socketio "github.com/googollee/go-socket.io"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/hiamthach/micro-chat/db"
+	"github.com/hiamthach/micro-chat/middleware"
 	"github.com/hiamthach/micro-chat/pb"
 	"github.com/hiamthach/micro-chat/util"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -15,14 +16,8 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn) {
+func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn, socketServer *socketio.Server) {
 	grpcServer := grpc.NewServer()
-
-	// socket server
-	socketServer, err := db.NewSocketServer()
-	if err != nil {
-		log.Fatalf("Failed to create socket server: %v", err)
-	}
 
 	// Register gRPC server
 	roomServer, err := NewRoomServer(config, cache, store)
@@ -50,12 +45,12 @@ func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil
 	}
 }
 
-func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn) {
+func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn, socketServer *socketio.Server) {
 	// initialize socket server
-	socketServer, err := db.NewSocketServer()
-	if err != nil {
-		log.Fatalf("Failed to create socket server: %v", err)
-	}
+	// socketServer, err := db.NewSocketServer()
+	// if err != nil {
+	// 	log.Fatalf("Failed to create socket server: %v", err)
+	// }
 
 	// initialize grpc server
 	roomServer, err := NewRoomServer(config, cache, store)
@@ -95,8 +90,8 @@ func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisU
 
 	// initialize http server
 	mux := http.NewServeMux()
-	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", grpcMux))
-	mux.Handle("/socket.io/", socketServer)
+	mux.Handle("/api/v1/", middleware.LogMiddleware(http.StripPrefix("/api/v1", grpcMux)))
+	// mux.Handle("/socket.io/", middleware.LogMiddleware(socketServer))
 
 	listener, err := net.Listen("tcp", config.ServerAddress)
 	if err != nil {

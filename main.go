@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 
+	socketio "github.com/googollee/go-socket.io"
 	"github.com/hiamthach/micro-chat/server"
 	"github.com/hiamthach/micro-chat/util"
 	"go.mongodb.org/mongo-driver/bson"
@@ -52,7 +54,37 @@ func main() {
 
 	defer conn.Close()
 
+	// socket server
+	socketServer := socketio.NewServer(nil)
+
+	socketServer.OnConnect("/", func(s socketio.Conn) error {
+		s.SetContext("")
+		fmt.Println("connected:", s.ID())
+		return nil
+	})
+
+	socketServer.OnEvent("/", "new_message", func(s socketio.Conn, msg string) {
+		log.Println("new_message:")
+		fmt.Println("new_message:", msg)
+		s.Emit("new_message", msg)
+	})
+
+	socketServer.OnError("/", func(s socketio.Conn, e error) {
+		fmt.Println("meet error:", e)
+	})
+
+	socketServer.OnDisconnect("/", func(s socketio.Conn, reason string) {
+		fmt.Println("closed", reason)
+	})
+
+	go socketServer.Serve()
+	defer socketServer.Close()
+
+	http.Handle("/socket.io/", socketServer)
+
+	go http.ListenAndServe(config.SocketAddress, nil)
+
 	// run server
-	go server.RunGRPCServer(config, dbClient, *redisUtil, conn)
-	server.RunGatewayServer(config, dbClient, *redisUtil, conn)
+	go server.RunGRPCServer(config, dbClient, *redisUtil, conn, socketServer)
+	server.RunGatewayServer(config, dbClient, *redisUtil, conn, socketServer)
 }
