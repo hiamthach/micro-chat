@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/hiamthach/micro-chat/server"
@@ -79,10 +78,6 @@ func main() {
 
 	go socketServer.Serve()
 	defer socketServer.Close()
-
-	http.Handle("/socket.io/", socketServer)
-
-	go http.ListenAndServe(config.SocketAddress, nil)
 
 	// run server
 	go server.RunGRPCServer(config, dbClient, *redisUtil, conn, socketServer)

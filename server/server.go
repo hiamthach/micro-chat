@@ -90,8 +90,8 @@ func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisU
 
 	// initialize http server
 	mux := http.NewServeMux()
+	mux.Handle("/socket.io/", middleware.LogMiddleware(socketServer))
 	mux.Handle("/api/v1/", middleware.LogMiddleware(http.StripPrefix("/api/v1", grpcMux)))
-	// mux.Handle("/socket.io/", middleware.LogMiddleware(socketServer))
 
 	listener, err := net.Listen("tcp", config.ServerAddress)
 	if err != nil {
