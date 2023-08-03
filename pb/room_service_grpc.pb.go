@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	RoomService_GetRoom_FullMethodName    = "/pb.RoomService/GetRoom"
 	RoomService_CreateRoom_FullMethodName = "/pb.RoomService/CreateRoom"
 	RoomService_JoinRoom_FullMethodName   = "/pb.RoomService/JoinRoom"
 )
@@ -27,6 +28,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RoomServiceClient interface {
+	GetRoom(ctx context.Context, in *RoomId, opts ...grpc.CallOption) (*Room, error)
 	CreateRoom(ctx context.Context, in *CreateRoomRequest, opts ...grpc.CallOption) (*CreateRoomResponse, error)
 	JoinRoom(ctx context.Context, in *JoinRoomRequest, opts ...grpc.CallOption) (*JoinRoomResponse, error)
 }
@@ -37,6 +39,15 @@ type roomServiceClient struct {
 
 func NewRoomServiceClient(cc grpc.ClientConnInterface) RoomServiceClient {
 	return &roomServiceClient{cc}
+}
+
+func (c *roomServiceClient) GetRoom(ctx context.Context, in *RoomId, opts ...grpc.CallOption) (*Room, error) {
+	out := new(Room)
+	err := c.cc.Invoke(ctx, RoomService_GetRoom_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *roomServiceClient) CreateRoom(ctx context.Context, in *CreateRoomRequest, opts ...grpc.CallOption) (*CreateRoomResponse, error) {
@@ -61,6 +72,7 @@ func (c *roomServiceClient) JoinRoom(ctx context.Context, in *JoinRoomRequest, o
 // All implementations must embed UnimplementedRoomServiceServer
 // for forward compatibility
 type RoomServiceServer interface {
+	GetRoom(context.Context, *RoomId) (*Room, error)
 	CreateRoom(context.Context, *CreateRoomRequest) (*CreateRoomResponse, error)
 	JoinRoom(context.Context, *JoinRoomRequest) (*JoinRoomResponse, error)
 	mustEmbedUnimplementedRoomServiceServer()
@@ -70,6 +82,9 @@ type RoomServiceServer interface {
 type UnimplementedRoomServiceServer struct {
 }
 
+func (UnimplementedRoomServiceServer) GetRoom(context.Context, *RoomId) (*Room, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRoom not implemented")
+}
 func (UnimplementedRoomServiceServer) CreateRoom(context.Context, *CreateRoomRequest) (*CreateRoomResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateRoom not implemented")
 }
@@ -87,6 +102,24 @@ type UnsafeRoomServiceServer interface {
 
 func RegisterRoomServiceServer(s grpc.ServiceRegistrar, srv RoomServiceServer) {
 	s.RegisterService(&RoomService_ServiceDesc, srv)
+}
+
+func _RoomService_GetRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RoomId)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoomServiceServer).GetRoom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoomService_GetRoom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoomServiceServer).GetRoom(ctx, req.(*RoomId))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _RoomService_CreateRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -132,6 +165,10 @@ var RoomService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "pb.RoomService",
 	HandlerType: (*RoomServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetRoom",
+			Handler:    _RoomService_GetRoom_Handler,
+		},
 		{
 			MethodName: "CreateRoom",
 			Handler:    _RoomService_CreateRoom_Handler,

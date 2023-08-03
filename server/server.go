@@ -7,23 +7,30 @@ import (
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/hiamthach/micro-chat/middleware"
 	"github.com/hiamthach/micro-chat/pb"
 	"github.com/hiamthach/micro-chat/util"
+	pubnub "github.com/pubnub/go/v7"
 	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn) {
+func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn, pn *pubnub.PubNub) {
 	grpcServer := grpc.NewServer()
 
 	// Register gRPC server
-	roomServer, err := NewRoomServer(config, cache, store)
+	roomServer, err := NewRoomServer(config, cache, store, conn, pn)
 	if err != nil {
 		log.Fatalf("Failed to create room server: %v", err)
 	}
-
 	pb.RegisterRoomServiceServer(grpcServer, roomServer)
+
+	chatServer, err := NewChatServer(config, cache, store, conn, pn)
+	if err != nil {
+		log.Fatalf("Failed to create chat server: %v", err)
+	}
+	pb.RegisterChatServiceServer(grpcServer, chatServer)
 
 	// Start gRPC server
 	listener, err := net.Listen("tcp", config.GRPCServerAddress)
@@ -38,10 +45,16 @@ func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil
 	}
 }
 
-func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn) {
-	roomServer, err := NewRoomServer(config, cache, store)
+func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn, pn *pubnub.PubNub) {
+	// initialize grpc server
+	roomServer, err := NewRoomServer(config, cache, store, conn, pn)
 	if err != nil {
 		log.Fatalf("Failed to create room server: %v", err)
+	}
+
+	chatServer, err := NewChatServer(config, cache, store, conn, pn)
+	if err != nil {
+		log.Fatalf("Failed to create chat server: %v", err)
 	}
 
 	// initialize json option
@@ -65,9 +78,13 @@ func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisU
 		log.Fatalf("Failed to register gateway: %v", err)
 	}
 
+	if err := pb.RegisterChatServiceHandlerServer(ctx, grpcMux, chatServer); err != nil {
+		log.Fatalf("Failed to register gateway: %v", err)
+	}
+
 	// initialize http server
 	mux := http.NewServeMux()
-	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", grpcMux))
+	mux.Handle("/api/v1/", middleware.LogMiddleware(http.StripPrefix("/api/v1", grpcMux)))
 
 	listener, err := net.Listen("tcp", config.ServerAddress)
 	if err != nil {

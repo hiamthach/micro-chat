@@ -7,16 +7,22 @@ import "google/api/annotations.proto";
 option go_package = "github.com/hiamthach/micro-chat/pb";
 
 service RoomService {
+  rpc GetRoom(RoomId) returns (Room) {
+    option (google.api.http) = {
+      get: "/rooms/{id}"
+    };
+  }
+
   rpc CreateRoom (CreateRoomRequest) returns (CreateRoomResponse) {
     option (google.api.http) = {
-      post: "/v1/rooms"
+      post: "/rooms"
       body: "*"
     };
   }
 
   rpc JoinRoom(JoinRoomRequest) returns (JoinRoomResponse) {
     option (google.api.http) = {
-      post: "/v1/rooms/join/{id}"
+      post: "/rooms/join/{id}"
       body: "*"
     };
   }
@@ -24,9 +30,13 @@ service RoomService {
 
 message Room {
   string id = 1;
-  string name = 2;
-  repeated string participants = 3;
-  string createdBy = 4;
+  repeated string participants = 2;
+  string createdBy = 3;
+  uint32 room_size = 4;
+}
+
+message RoomId {
+  string id = 1;
 }
 
 message CreateRoomRequest {
@@ -35,10 +45,7 @@ message CreateRoomRequest {
 }
 
 message CreateRoomResponse {
-  string id = 1;
-  string room_name = 2;
-  uint32 room_size = 3;
-  string createdBy = 4;
+  Room room = 1;
 }
 
 message JoinRoomRequest {

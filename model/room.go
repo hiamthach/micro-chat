@@ -2,7 +2,7 @@ package model
 
 type Room struct {
 	ID           string   `bson:"_id,omitempty"`
-	Name         string   `bson:"name"`
+	RoomSize     uint32   `bson:"room_size"`
 	Participants []string `bson:"participants"`
 	CreatedBy    string   `bson:"createdBy"`
 }

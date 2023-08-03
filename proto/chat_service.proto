@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package pb;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/hiamthach/micro-chat/pb";
+
+service ChatService {
+  rpc SendMessage (SendMessageRequest) returns (Message) {
+    option (google.api.http) = {
+      post: "/chat/send"
+      body: "*"
+    };
+  }
+
+  rpc GetMessages (GetMessagesRequest) returns (GetMessagesResponse) {
+    option (google.api.http) = {
+      post: "/chat/messages/{roomId}"
+      body: "*"
+    };
+  }
+}
+
+message Message {
+  string id = 1;
+  string room_id = 2;
+  string sender_id = 3;
+  string content = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message SendMessageRequest {
+  string room_id = 1;
+  string sender_id = 2;
+  string content = 3;
+}
+
+message GetMessagesRequest {
+  string roomId = 1;
+  string username = 2;
+}
+
+message GetMessagesResponse {
+  repeated Message messages = 1;
+}

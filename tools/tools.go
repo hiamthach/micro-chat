@@ -4,6 +4,7 @@
 package tools
 
 import (
+	_ "github.com/googollee/go-socket.io"
 	_ "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	_ "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	_ "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway"
