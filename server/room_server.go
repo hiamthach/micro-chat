@@ -7,23 +7,29 @@ import (
 	"github.com/hiamthach/micro-chat/model"
 	"github.com/hiamthach/micro-chat/pb"
 	"github.com/hiamthach/micro-chat/util"
+	pubnub "github.com/pubnub/go/v7"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"google.golang.org/grpc"
 )
 
 type RoomServer struct {
-	cache  util.RedisUtil
-	config util.Config
-	store  *mongo.Client
+	cache      util.RedisUtil
+	config     util.Config
+	store      *mongo.Client
+	clientConn *grpc.ClientConn
+	pn         *pubnub.PubNub
 	pb.UnimplementedRoomServiceServer
 }
 
-func NewRoomServer(config util.Config, cache util.RedisUtil, store *mongo.Client) (*RoomServer, error) {
+func NewRoomServer(config util.Config, cache util.RedisUtil, store *mongo.Client, conn *grpc.ClientConn, pn *pubnub.PubNub) (*RoomServer, error) {
 	return &RoomServer{
-		cache:  cache,
-		config: config,
-		store:  store,
+		cache:      cache,
+		config:     config,
+		store:      store,
+		clientConn: conn,
+		pn:         pn,
 	}, nil
 }
 

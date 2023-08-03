@@ -8,10 +8,10 @@ import (
 	"log"
 	"time"
 
-	socketio "github.com/googollee/go-socket.io"
 	"github.com/hiamthach/micro-chat/model"
 	"github.com/hiamthach/micro-chat/pb"
 	"github.com/hiamthach/micro-chat/util"
+	pubnub "github.com/pubnub/go/v7"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -24,17 +24,17 @@ type ChatServer struct {
 	config     util.Config
 	store      *mongo.Client
 	clientConn *grpc.ClientConn
-	socket     socketio.Server
+	pn         *pubnub.PubNub
 	pb.UnimplementedChatServiceServer
 }
 
-func NewChatServer(config util.Config, cache util.RedisUtil, store *mongo.Client, conn *grpc.ClientConn, socket socketio.Server) (*ChatServer, error) {
+func NewChatServer(config util.Config, cache util.RedisUtil, store *mongo.Client, conn *grpc.ClientConn, pn *pubnub.PubNub) (*ChatServer, error) {
 	return &ChatServer{
 		cache:      cache,
 		config:     config,
 		store:      store,
 		clientConn: conn,
-		socket:     socket,
+		pn:         pn,
 	}, nil
 }
 
@@ -68,8 +68,15 @@ func (s *ChatServer) SendMessage(ctx context.Context, req *pb.SendMessageRequest
 		log.Print(err)
 	}
 
-	// Emit message to room
-	s.socket.BroadcastToRoom("/", req.RoomId, "new_message", convertMessage(message))
+	// Publish message to pubnub
+	res, status, err := s.pn.Publish().Channel(req.RoomId).Message(message.Content).Execute()
+
+	if err != nil {
+		log.Print(err)
+	} else {
+		log.Printf("Publish timetoken: %d\n", res.Timestamp)
+		log.Printf("Status response: %s\n", status)
+	}
 
 	return convertMessage(message), nil
 }

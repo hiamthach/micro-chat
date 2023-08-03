@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	socketio "github.com/googollee/go-socket.io"
+	pubnub "github.com/hiamthach/micro-chat/cores/pubnub"
 	"github.com/hiamthach/micro-chat/server"
 	"github.com/hiamthach/micro-chat/util"
 	"go.mongodb.org/mongo-driver/bson"
@@ -45,6 +45,11 @@ func main() {
 		log.Fatal("Can not connect to redis: ", err)
 	}
 
+	// Init pubnub
+	pubnub := &pubnub.PubNubHelper{}
+	pubnub.Init(config)
+	pn := pubnub.InsWithUserId(config.PubNubUserId)
+
 	// Connect to gRPC dbClient
 	conn, err := grpc.Dial(config.GRPCServerAddress, grpc.WithInsecure())
 	if err != nil {
@@ -53,33 +58,7 @@ func main() {
 
 	defer conn.Close()
 
-	// socket server
-	socketServer := socketio.NewServer(nil)
-
-	socketServer.OnConnect("/", func(s socketio.Conn) error {
-		s.SetContext("")
-		fmt.Println("connected:", s.ID())
-		return nil
-	})
-
-	socketServer.OnEvent("/", "new_message", func(s socketio.Conn, msg string) {
-		log.Println("new_message:")
-		fmt.Println("new_message:", msg)
-		s.Emit("new_message", msg)
-	})
-
-	socketServer.OnError("/", func(s socketio.Conn, e error) {
-		fmt.Println("meet error:", e)
-	})
-
-	socketServer.OnDisconnect("/", func(s socketio.Conn, reason string) {
-		fmt.Println("closed", reason)
-	})
-
-	go socketServer.Serve()
-	defer socketServer.Close()
-
 	// run server
-	go server.RunGRPCServer(config, dbClient, *redisUtil, conn, socketServer)
-	server.RunGatewayServer(config, dbClient, *redisUtil, conn, socketServer)
+	go server.RunGRPCServer(config, dbClient, *redisUtil, conn, pn)
+	server.RunGatewayServer(config, dbClient, *redisUtil, conn, pn)
 }

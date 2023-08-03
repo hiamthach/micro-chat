@@ -6,27 +6,27 @@ import (
 	"net"
 	"net/http"
 
-	socketio "github.com/googollee/go-socket.io"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/hiamthach/micro-chat/middleware"
 	"github.com/hiamthach/micro-chat/pb"
 	"github.com/hiamthach/micro-chat/util"
+	pubnub "github.com/pubnub/go/v7"
 	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn, socketServer *socketio.Server) {
+func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn, pn *pubnub.PubNub) {
 	grpcServer := grpc.NewServer()
 
 	// Register gRPC server
-	roomServer, err := NewRoomServer(config, cache, store)
+	roomServer, err := NewRoomServer(config, cache, store, conn, pn)
 	if err != nil {
 		log.Fatalf("Failed to create room server: %v", err)
 	}
 	pb.RegisterRoomServiceServer(grpcServer, roomServer)
 
-	chatServer, err := NewChatServer(config, cache, store, conn, *socketServer)
+	chatServer, err := NewChatServer(config, cache, store, conn, pn)
 	if err != nil {
 		log.Fatalf("Failed to create chat server: %v", err)
 	}
@@ -45,20 +45,14 @@ func RunGRPCServer(config util.Config, store *mongo.Client, cache util.RedisUtil
 	}
 }
 
-func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn, socketServer *socketio.Server) {
-	// initialize socket server
-	// socketServer, err := db.NewSocketServer()
-	// if err != nil {
-	// 	log.Fatalf("Failed to create socket server: %v", err)
-	// }
-
+func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisUtil, conn *grpc.ClientConn, pn *pubnub.PubNub) {
 	// initialize grpc server
-	roomServer, err := NewRoomServer(config, cache, store)
+	roomServer, err := NewRoomServer(config, cache, store, conn, pn)
 	if err != nil {
 		log.Fatalf("Failed to create room server: %v", err)
 	}
 
-	chatServer, err := NewChatServer(config, cache, store, conn, *socketServer)
+	chatServer, err := NewChatServer(config, cache, store, conn, pn)
 	if err != nil {
 		log.Fatalf("Failed to create chat server: %v", err)
 	}
@@ -90,7 +84,6 @@ func RunGatewayServer(config util.Config, store *mongo.Client, cache util.RedisU
 
 	// initialize http server
 	mux := http.NewServeMux()
-	mux.Handle("/socket.io/", middleware.LogMiddleware(socketServer))
 	mux.Handle("/api/v1/", middleware.LogMiddleware(http.StripPrefix("/api/v1", grpcMux)))
 
 	listener, err := net.Listen("tcp", config.ServerAddress)
